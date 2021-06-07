@@ -895,7 +895,7 @@ Networking:
 
 		Kubernetes will search below local domains:
 		# cat /etc/resolv.conf
-		nameserver 10.96.0.10																			# Kube-DNS ClusterIP.
+		nameserver XX.XX.XX.XX																			# Kube-DNS ClusterIP.
 		search default.svc.cluster.local svc.cluster.local cluster.local eu-west-2.compute.internal
 		options ndots:5
 
@@ -2280,7 +2280,7 @@ net.bridge.bridge-nf-call-iptables - Controls whether or not packets traversing 
 
 Joining new worker node to Master (Note: This token is time bound so if a new node needs adding later on, you may have to re-create a fresh token):
 # kubeadm token create --print-join-command
-kubeadm join 172.31.102.80:6443 --token 70nvve.mmkns371ucrwjiqt --discovery-token-ca-cert-hash sha256:a57148528b8c403cb9db6cd7cb4036c3a1b3895405432bb3c0884873ace44fb7
+kubeadm join <clusterIP>:6443 --token <token> --discovery-token-ca-cert-hash sha256:<hash>
 
 
 TLS Certificates:
