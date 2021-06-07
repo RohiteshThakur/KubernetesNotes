@@ -1,0 +1,432 @@
+Kube Commands:
+# kubectl get pods -n kube-system -o custom-columns=POD:metadata.name,NODE:spec.nodeName
+
+sudo kubeadm init --pod-network-cidr=<CIDR> 
+
+Namespaced or Not:
+# In a namespace
+kubectl api-resources --namespaced=true
+
+# Not in a namespace
+kubectl api-resources --namespaced=false
+
+
+List All:
+# kubectl get all
+
+List Pods and NodeName:
+# kubectl get pods -n kube-system -o custom-columns=POD:metadata.name,NODE:spec.nodeName
+
+# kubectl get nodes -o wide				# Internal-IP is the IP address of the kube-proxy. Confirm using: # kubectl get pods -n kube-system -o wide | grep -i proxy
+
+# kubectl get ep -n kube-system
+# kubectl get ep kube-scheduler -n kube-system -o yaml | grep -i holderIdentity 		# List the leader between >1 master nodes.
+
+
+Accessing Kube API server using curl:
+-------------------------------------
+Master # kubectl proxy --port=8080											                       # run kubectl(in proxy mode) as a proxy to kube API.
+Master # curl http://localhost:8080/api/v1/namespaces/kube-system/services     # Proxy authenticates to Kube API uses credentials from kubeconfig file, and gets the details.
+
+List which resources are bound within namespace:
+Master # curl localhost:8001/api/v1
+
+Master # curl localhost:8001/api/v1/namespaces/my-ns/pods
+
+Sample Commands for pulling API resources:
+# curl localhost:8001/rbac.authorization.k8s.io/api/v1/namespaces			# This command is wrong but it will list all available API paths.
+# curl localhost:8001/apis 													                  # Lists APIGroupList
+# curl localhost:8001/apis/rbac.authorization.k8s.io/v1
+# curl localhost:8001/version
+
+# curl localhost:8001/apis 												                  	# Lists "APIGroupList"
+# curl localhost:8001/api/v1/nodes 										               	# Note: "s" in api is missing. Lists "APIResourceList"
+
+List all Roles:
+# curl localhost:8001/apis/rbac.authorization.k8s.io/v1/roles
+
+Processing Output:
+# curl --silent localhost:8001/apis/rbac.authorization.k8s.io/v1/namespaces/web/rolebindings | jq .metadata.selfLink
+# curl --silent localhost:8001/apis/rbac.authorization.k8s.io/v1 | jq -r '.resources[].name'
+# curl --silent localhost:8001/apis/rbac.authorization.k8s.io/v1 | jq -r '.resources[].name + " " + .resources[].verbs[]'
+
+
+# kubectl get --raw /apis/metrics.k8s.io/
+
+# kubectl auth can-i <verb> <resource> [--as username]     # verb = get, create, update, delete   <resource> = pods, deployments, service etc.
+
+
+
+Schedule Pods on Particular Node:
+---------------------------------
+# kubectl get nodes --show-labels
+# kubectl label nodes <your-node-name> disktype=ssd
+# vi pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  labels:
+    env: test
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    imagePullPolicy: IfNotPresent
+  nodeSelector:
+    disktype: ssd
+
+
+# kubectl apply -f pod.yaml
+# kubectl get pods --output=wide
+
+
+Forward port on the NODE to access service on the POD:
+------------------------------------------------------
+You need to know the port numbr on which the service is listening on the POD. e.g. an nginx pod will listen on port 80.
+On Node # kubectl port-forward <$pod_name> 8081:80			# forward port 8081 on Node to port 80 on pod.
+On Node # curl --head http://127.0.0.1:8081					# While remaining in the cluster, access Node's port 8081 to check connectivity between Node to Pod can be est.
+
+Although, while on the node, we can access POD's service on POD's Private IP:
+On Node # curl --head 10.244.2.7:80
+HTTP/1.1 200 OK
+
+
+
+Adding labels to a Pod:
+-----------------------
+# kubectl label pods nginx-7cdbd8cdc9-4wctj app=nginx
+# kubectl get pods nginx-7cdbd8cdc9-4wctj --show-labels
+				OR
+# kubectl edit pod <POD Name>   # update labels, save and quit.
+# kubectl get pods --show-labels
+	NAME                     READY   STATUS    RESTARTS   AGE   LABELS
+	nginx-7cdbd8cdc9-4wctj   1/1     Running   1          9h    app=nginx,pod-template-hash=7cdbd8cdc9,run=nginx,tag=dev
+
+
+If at this point, you have already created a Service with same labels as selectors, then Kubernetes should automatically add the pods to Service Endpoints.
+# kubectl get ep
+NAME             ENDPOINTS            AGE
+kubernetes       172.31.102.80:6443   10d			# Private IP of Kube Master Node.
+nginx-nodeport   10.244.2.9:80        5h17m			# Automatically added.
+
+
+================================================================
+
+CKA Commands:-
+-------------
+
+POD deployment:
+---------------
+Note: you can't create POD using kubectl create...
+# kubectl run nginx --generator=run-pod/v1 --image=nginx --dry-run -o yaml > file.yaml
+
+
+Easy Kube deployments:
+----------------------
+# kubectl run nginx --image=nginx   OR # kubectl create deployment <name> --image=nginx
+# kubectl get deployments -o yaml
+
+Imperative commands:
+--------------------
+# kubectl run <name of pod> --generator=run-pod/v1 --image=redis:alpine --labels="tier=db" 		# Create pods with labels.
+# kubectl expose pod redis --port=6379 --name=redis-service 							# Create a Service, attach pod as backend and expose its port.
+# kubectl run webapp --image=kodekloud/webapp-color --replicas=3						# Create Deployments with replicas.
+
+Incase there are not enough flags available in a command (for e.g. below command doesn't support --nodePort)
+# kubectl expose deployment <name of deployment> --port=30082 --target-port=8080 --name=<Name of Service> --type=NodePort --dry-run -o yaml > svc.yaml
+
+Create a Service:
+# kubectl create service clusterip redis --tcp=6379:6379 --dry-run -o yaml > svc.yaml 
+
+ReplicaSets:
+------------
+If you make changes to a replicaSets, you'll have to re-provision the pods for the changes to take effect.
+
+Namespaces:
+-----------
+# kubectl config set-context $(kubectl config current-context) --namespace dev			# keep the current context as is, just update the namespace.
+
+Manual Scheduling:
+------------------
+Add "nodeName: <Node name>" under spec:     at the time of POD creation.
+apiversion:
+kind:
+metadata:
+spec:
+  nodeName: Worker1
+
+
+Daemonsets: Deploy a POD on every node of the cluster. POD deployment during node scale up/down is managed by Kubernetes.
+-----------
+apiVersion: v1
+kind: DaemonSet
+metadata:
+  name: Aqua
+  labels:
+    env: AquaEnforcers
+spec:
+  selector: 
+    matchLabels:
+      app:monitoring-agent       -- Which POD to deploy?
+  template:
+    metadata:
+      labels:
+        app:monitoring-agent     -- ...This.
+    spec:
+      containers:
+      - name:monitoring-agent
+        image:monitoring-agent
+
+# kubetctl get daemonsets
+# kubectl describe daemonsets Aqua
+
+
+
+
+Once POD is created, we cannot edit yaml to mode the POD on a specific node. In this case we'll have to create a Binding object.
+Binding.yaml:
+apiVersion: v1
+kind: Binding
+metadata:
+  name: <pod_name> 			# POD Name
+
+spec:
+  apiVersion: v1
+  kind: Node
+  name: <node_name> 					# NODE Name.
+
+# curl --header "Content-Type:application/json" --request=POST --data= { YAML  in JSON } http://{$Master}/api/v1/namespaces/default/pod/{$podname}/binding
+
+Labels and Selectors:
+---------------------
+Labels are tags on resources and resources can be tagged in yaml under metadata:
+apiversion:
+kind:
+metadata:
+  name:
+  labels:
+    app: webserver
+    type: backend
+
+spec:
+
+# kubectl get pods --selector app=webserver
+
+These labels can be used in replicasets and services to club / map.
+In both replicaset and service YAMLs:
+apiversion:
+kind:
+metadata:
+spec:
+  selector:
+    matchLabels:
+      app: webserver
+      type: backnd
+
+
+Also, point to note here is: Both replicast and service has template under spec which can be a lift and shift of POD.yaml's ** metadata and spec ** section.
+and Labels are defined in POD yaml's metadata sction. Make sure both, selector in RS and SVC and labels in POD's yaml match.
+
+Annotations:
+------------
+These are used to record additional details on kube resource.
+
+apiversion:
+kind:
+metadata:
+  name:
+  labels:
+  annotations:
+    buildversion: 1.4
+    compiler: "go v1.9"
+
+spec:
+
+
+Resource Quota: Set limits on a particular namespace:
+---------------
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: dev-quota
+  namespace: dev
+  labels:
+    name: dev-quote
+
+spec:
+  hard:
+    pods: 10
+    requests.cpu: 4
+    requsts.memory: 10
+
+# kubectl create -f <filename.yaml>
+
+
+Taints (a node's attribute) and Tolerations (Pod's attribute):
+-------------------------------------------------------------
+Is to repel pods which have no tolorations. PODs by default have no toleration hence a tainted node can repel all PODs (with no tolerations).
+
+If you want only certain PODs to get scheduled on certain nodes then add tolerations to it. However, THERE IS A CATCH: This doesn't guarantees that a POD with toleration to particular taint will only get scheduled on that node. A pod with tolerations can get scheduled on other nodes as well. 
+  ****  If you want to force a pod then configure affinity.  ***
+ 
+Taint a NODE:
+# kubectl taint nodes <nodename> key=value:Noschedule | PreferNoSchedule | Noexecution 				# Remember: Only nodes can be tainted.
+# kubectl taint nodes <nodename> app=dbserver:Noschedule
+
+Add Toleration on a POD (creation time):
+apiversion:
+kind:
+metadata:
+
+spec:
+  tolerations:
+  - key: app
+    operator: Equal
+    value: dbserver
+    effect: NoSchedule
+
+
+# kubectl describe master | grep -i taints -A 4
+
+
+Node Selectors:
+---------------
+This can be used to place a POD on a particular node.
+
+# kubectl label nodes <node name> <key=value> 					# Label a NODE.
+# kubectl label nodes worked1 env=dev
+
+POD's yaml:
+apiVersion:
+kind:
+metadata:
+
+spec:
+  nodeSelector: 
+    env: dev
+
+But this is simple one to one matching, we cannot add logical operaters OR / AND / NOT in NodeSelectors. For this we need Node Affinity:
+
+
+Node Affinity:
+--------------
+In POD's yaml:
+apiversion:
+kind:
+metadata:
+
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution | preferredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - Key: env
+            operator: NotIn | Exists | ..
+            values: 
+            - dev
+
+
+We can use Taint and Tolerations to prevent other pods from getting scheduled on particular nodes. The use PODs affinity to prevent specific pods on other nodes but to get scheduled on the nodes we want.
+
+Resource Limits:
+----------------
+By default Kubernetes assigns 0.5 vCPU and 256M of memory on containers with a limit of 1 vCPU and 512M. Note: this on a per container basis within a POD.
+
+apiversion:
+kind:
+metadata:
+spec:
+  containers:
+    requests:
+      cpu: 1
+      mem: "1Gi"
+
+    limits:
+      cpu: 2
+      mem: "1Gi"
+
+If a container needs more CPU than its limits, then kubernetes will cause CPU to throttle. But if container needs more memory, kubernetes will allow. If POD continues to 
+need more CPU and Memory than limits, it will be terminated.
+
+
+
+Manual Schedulers:
+------------------
+# kubectl get pods kube-scheduler -n kube-system -o yaml > custom.yaml
+
+open custom.yaml (kubeadm deploys kube scheduler as a POD in kube-system name space):
+apiversion:
+kind: Pod
+metadata:
+
+spec:
+  containers:
+  -command:
+  - --scheduler-name=my-custom-scheduler
+  - --lock-object-name=my-custom-scheduler
+
+
+
+LOGGING and MONITORING:
+-----------------------
+For node and pod metrics, use metric server which keeps metrics data "in-memory" and doesn't commit anything on to disks.
+
+# git clone https://github.com/kubernetes-incubator/metrics-serve
+# kubectl create -f <path to yaml downloaded>
+
+# kubectl top node
+# kubectl top pod
+
+
+Application logs:
+-----------------
+# kubectl logs -f <podname> <container name> 			# because pod can host more than one container.
+
+
+APPLICATION LIFECYCLE MANAGEMENT:
+---------------------------------
+
+Rolling updates and rollbacks:
+------------------------------
+
+# kubectl rollout status deployment/<dep name>				# check status of roll out.
+# kubectl rollout history deployment/<dep name>
+
+
+
+
+
+
+CLUSTER MAINTENANCE:
+--------------------
+
+https://portal.azure.com/#@b4a42f9f-57e8-4535-80d8-2ff03a6240f8/resource/subscriptions/17b61dd9-6070-46d9-b112-911d5a2e7024/overview
+
+https://portal.azure.com/#@b4a42f9f-57e8-4535-80d8-2ff03a6240f8/resource/subscriptions/6c9e9c73-346a-43b7-9cad-366a7b68a5dc/overview
+
+
+
+ab5941dc-bf5f-4f69-87c5-e3492ab20503
+
+8a660c7e-12cd-4347-a939-289935c6b8b8
+
+bbe60754-9744-4a8e-9a7a-47650baa9192
+
+
+9fb1e841-270e-464a-b715-b129e6dd0ea1
+
+
+
+
+https://portal.azure.com/#@b4a42f9f-57e8-4535-80d8-2ff03a6240f8/resource/subscriptions/07c9abde-369e-40ff-ba9a-a1d84a0638dc/overview
+
+
+
+
+
+Delete resource group M-UKS-INFRADEV-IDHUB-RG-NET failed
+12:39 PM
+Failed to delete resource group M-UKS-INFRADEV-IDHUB-RG-NET: The client 'rohitesh.thakur1@lbgcts.onmicrosoft.com' with object id 'c84309ce-13e7-42d6-9b28-a7b8fdb54b05' has permission to perform action 'Microsoft.Resources/subscriptions/resourceGroups/delete' on scope '/subscriptions/6c242c11-13df-4c21-b2c0-5848c71a995a/resourceGroups/M-UKS-INFRADEV-IDHUB-RG-NET'; however, the access is denied because of the deny assignment with name 'Deny assignment '90ae3611-ede6-e223-d595-6c7d884796ab' created by Blueprint Assignment '/subscriptions/6c242c11-13df-4c21-b2c0-5848c71a995a/providers/Microsoft.Blueprint/blueprintAssignments/A-ID-hub-firewall-bp-master'.' and Id '90ae3611ede6e223d5956c7d884796ab' at scope '/subscriptions/6c242c11-13df-4c21-b2c0-5848c71a995a/resourceGroups/M-UKS-INFRADEV-IDHUB-RG-NET'. (Code: DenyAssignmentAuthorizationFailed)
+
