@@ -399,34 +399,3 @@ Rolling updates and rollbacks:
 
 
 
-CLUSTER MAINTENANCE:
---------------------
-
-https://portal.azure.com/#@b4a42f9f-57e8-4535-80d8-2ff03a6240f8/resource/subscriptions/17b61dd9-6070-46d9-b112-911d5a2e7024/overview
-
-https://portal.azure.com/#@b4a42f9f-57e8-4535-80d8-2ff03a6240f8/resource/subscriptions/6c9e9c73-346a-43b7-9cad-366a7b68a5dc/overview
-
-
-
-ab5941dc-bf5f-4f69-87c5-e3492ab20503
-
-8a660c7e-12cd-4347-a939-289935c6b8b8
-
-bbe60754-9744-4a8e-9a7a-47650baa9192
-
-
-9fb1e841-270e-464a-b715-b129e6dd0ea1
-
-
-
-
-https://portal.azure.com/#@b4a42f9f-57e8-4535-80d8-2ff03a6240f8/resource/subscriptions/07c9abde-369e-40ff-ba9a-a1d84a0638dc/overview
-
-
-
-
-
-Delete resource group M-UKS-INFRADEV-IDHUB-RG-NET failed
-12:39 PM
-Failed to delete resource group M-UKS-INFRADEV-IDHUB-RG-NET: The client 'rohitesh.thakur1@lbgcts.onmicrosoft.com' with object id 'c84309ce-13e7-42d6-9b28-a7b8fdb54b05' has permission to perform action 'Microsoft.Resources/subscriptions/resourceGroups/delete' on scope '/subscriptions/6c242c11-13df-4c21-b2c0-5848c71a995a/resourceGroups/M-UKS-INFRADEV-IDHUB-RG-NET'; however, the access is denied because of the deny assignment with name 'Deny assignment '90ae3611-ede6-e223-d595-6c7d884796ab' created by Blueprint Assignment '/subscriptions/6c242c11-13df-4c21-b2c0-5848c71a995a/providers/Microsoft.Blueprint/blueprintAssignments/A-ID-hub-firewall-bp-master'.' and Id '90ae3611ede6e223d5956c7d884796ab' at scope '/subscriptions/6c242c11-13df-4c21-b2c0-5848c71a995a/resourceGroups/M-UKS-INFRADEV-IDHUB-RG-NET'. (Code: DenyAssignmentAuthorizationFailed)
-
